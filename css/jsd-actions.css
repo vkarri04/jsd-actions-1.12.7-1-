@@ -1,0 +1,226 @@
+.td_project {
+	width: 15%
+}
+
+.td_lang {
+	width: 5%
+}
+
+.td_action {
+	width: 5%
+}
+
+.run-in {
+	display: inline;
+}
+
+.jsd-field-group {
+	box-sizing: border-box;
+    margin: 1px 0;
+    padding: 4px 0;
+    position: relative;
+    width: 70%;
+    max-width: 574px;
+}
+
+.jsd-label {
+    display: block;
+	color: #5E6C84;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.42857;
+    padding: 5px 0 8px;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.jsd-long-text {
+	color: #333333;
+	max-width: 100%;
+	height: 2.14286em;
+    line-height: 1.42857;
+    padding: 4px 5px;
+    border: 1px solid #cccccc;
+    border-radius: 3.01px;
+    box-shadow: 0 1px 3px #cccccc inset;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 16px;
+    margin: 0;
+    vertical-align: baseline;
+    width: 100%;
+}
+
+.jsd-medium-text {
+	color: #333333;
+    font-family: inherit;
+	height: 2.14286em;
+    line-height: 1.42857;
+    padding: 4px 5px;
+    border: 1px solid #cccccc;
+    border-radius: 3.01px;
+    box-shadow: 0 1px 3px #cccccc inset;
+    box-sizing: border-box;
+    font-size: inherit;
+    margin: 0;
+    vertical-align: baseline;
+    width: 100%;
+}
+
+.jsd-long-textarea {
+	max-width: 100%;
+	overflow-y: auto;
+	height: auto;
+    line-height: 1.42857;
+    margin: 0;
+    padding: 4px 5px;
+    border: 1px solid #cccccc;
+    border-radius: 3.01px;
+    box-shadow: 0 1px 3px #cccccc inset;
+    box-sizing: border-box;
+    font-size: inherit;
+    vertical-align: baseline;
+    width: 100%;
+    color: #333333;
+}
+
+.jsd-multi-select {
+	max-width: 100%;
+    width: 100%;
+}
+
+.jsd-select {
+	max-width: 100%;
+    width: 100%;
+}
+
+.jsd-cascading-select {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 3.01px;
+    box-shadow: 0 1px 3px #ccc inset;
+    color: #333;
+    font-size: 14px;
+    height: 2.14286em;
+}
+
+.jsd-cascading-select-child {
+    margin-top: 5px;
+}
+
+.jsd-user-picker {
+	max-width: 100%;
+    width: 100%;
+}
+
+.jsd-description {
+	color: #707070;
+    font-size: 12px;
+    line-height: 1.66667;
+    margin: 5px 0 0;
+}
+
+.jsd-user-picker-avatar {
+	margin-top: 5px;
+	float: left;
+    height: 16px;
+    margin-right: 5px;
+    width: 16px;
+}
+
+.jsd-multi-user-picker {
+    width: 100%;
+}
+
+.jsd-multi-user-picker-avatar {
+    float: left;
+    height: 16px;
+    margin-right: 5px;
+    width: 16px;
+}
+
+#action {
+    position: relative;
+    min-height: 400px;
+    display: block;
+    width: 820px;
+}
+
+.jsd-transition-description {
+	right: 0;
+    box-sizing: border-box;
+	padding-left: 24px;
+	position: absolute;
+	width: 30%;
+}
+
+.jsd-comment-editable-mouseOver {
+	border: 1px solid #ccc;
+    border-radius: 3.01px;
+    display: inline-block;
+    padding: 1px 5px;
+    width: 100%;
+}
+
+.jsd-comment-editable-mouseOut {
+	border: 1px solid transparent;
+    border-radius: 3.01px;
+    padding: 1px 5px;
+}
+
+.jsd-comment-edit-icon {
+	background-color: #f0f0f0;
+	border-left: 1px solid #ccc;
+	cursor: pointer;
+	position: absolute;
+    right: -6px;
+    top: 49px;
+}
+
+.jsd-comment-textarea {
+	border: 1px solid #ccc;
+    border-radius: 3.01px;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: inherit;
+	height: 80px;
+	line-height: 1.42857;
+    width: 100%;
+    resize: none;
+}
+
+.jsd-edit-button {
+	height: 24px;
+    padding: 0 4px;
+}
+
+.jsd-edit-button-div {
+	-moz-border-bottom-colors: none;
+    -moz-border-left-colors: none;
+    -moz-border-right-colors: none;
+    -moz-border-top-colors: none;
+    background-color: #f0f0f0;
+    border-color: #ccc #ccc;
+    border-image: none;
+    border-radius: 0 0 3px 3px;
+    border-style: none solid solid;
+    border-width: medium 1px 1px;
+    box-shadow: 0 3px 6px rgba(111, 111, 111, 0.2);
+    outline: medium none;
+    padding: 3px;
+    position: absolute;
+    right: 0px;
+    top: 123px;
+    z-index: 1;
+}
+
+/* Bundled fields - displaying options properly */
+fieldset.BF_FIELDSET {
+    position: relative;
+}
+
+/* Insight fields - displaying additional options properly */
+.rlabs-customfield-sd-container > div:first-child {
+    width: unset !important;
+    flex-grow: 0.98;
+}

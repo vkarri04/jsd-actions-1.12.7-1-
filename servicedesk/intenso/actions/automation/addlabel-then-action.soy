@@ -1,0 +1,17 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleThen.AddLabel}
+
+/**
+ * Draw the container for the add label then action
+ */
+{template .serviceDeskIssueLabelThenActionContainer}
+    <div class="automation-servicedesk-issue-label-then-action-container"></div>
+{/template}
+
+/**
+ * Draw the contents of the add label then form
+ * @param issueLabel the label for issue
+ */
+{template .drawIssueLabelForm}
+    <div class="automation-servicedesk-issue-label-then-action-header"><span class="aui-lozenge aui-lozenge-current">Depracated</span><b> Label: </b></div>
+    <input type="text" name="issueLabel" value="{$issueLabel}" class="text long-field">
+{/template}

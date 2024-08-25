@@ -1,0 +1,29 @@
+#disable_html_escaping()
+
+<head>
+	<meta name="contextPath" content="$contextPath"/>
+</head>
+
+<h2 class="aui-popup-heading">Fields Preview</h2>
+
+<form method="post" id="fields-preview-form" class="aui" action="ExtensionLinksPreview!close.jspa">
+	<div class="form-body" style="max-height: 500px;">
+		<table class="aui">
+			<thead>
+				<th>Field name</th>
+			</thead>
+			<tbody>
+				#foreach($field in $fields)
+					<tr>
+						<td>$!field</td>
+					</tr>
+				#end
+			</tbody>	
+		</table>
+	</div>
+ 	<div class="buttons-container form-footer">
+		<div class="buttons"><span class="icon throbber"></span>
+        	<a title="Press Ctrl+` to close" id="cancel" href="./ActionsGeneral.jspa" class="aui-button aui-button-link cancel" accesskey="`">Close</a>
+		</div>  
+    </div>
+</form>

@@ -1,0 +1,18 @@
+<div
+    class="jsd-bundled-fields-edit"
+    isCFRequired="$isCFRequired"
+    contextId="$contextId"
+    issueId="$issueId"
+    customFieldId="$customFieldId"
+    name="$name"
+    fieldType="com.intenso.jira.plugins.jsd-extender:jsd-bundled-fields"
+    editable="false"
+>
+    <input
+        type="hidden"
+        id="customfield_$customFieldId"
+        name="$name"
+        value="$json"
+    />
+    <div id="bundledfields-readonly-renderer"/>
+</div>

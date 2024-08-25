@@ -1,0 +1,21 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleThen.AssigneeTo}
+
+/**
+ * Draw the container for the assignee to user then action
+ */
+{template .assigneeToThenActionContainer}
+    <div class="automation-servicedesk-intenso-add-assignee-then-action-container"></div>
+{/template}
+
+/**
+ * Draw the contents for the assignee to user then action
+ * @param userKey - Key of selected user
+ */
+{template .assigneeToForm}
+    <div class="automation-servicedesk-intenso-add-assignee-then-action-header">
+        <span class="aui-lozenge aui-lozenge-current">Depracated</span><b> User Key:</b>
+    </div>
+    <select id="userKey" name="userKey" class="select" style="width: 350px;" value="{$userKey}">
+        <option></option>
+    </select>
+{/template}

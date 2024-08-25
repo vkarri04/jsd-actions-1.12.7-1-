@@ -1,0 +1,5 @@
+<input
+    type="hidden"
+    id="$customFieldId"
+    class="jsd-extender-field-to-hide"
+/>

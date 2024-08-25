@@ -1,0 +1,21 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleThen.AddRequestParticipants}
+
+/**
+* Draw the container for the adding request participants then action
+*/
+{template .addRequestParticipantsThenActionContainer}
+    <div class="automation-servicedesk-intenso-add-request-participants-then-action-container"></div>
+{/template}
+
+/**
+* Draw the contents for the adding request participants then action
+* @param requestParticipantKeys - Keys of selected users
+*/
+{template .addRequestParticipantsThenActionForm}
+    <div class="automation-servicedesk-intenso-add-request-participants-then-action-header">
+        <b>Request participants:</b>
+    </div>
+    <select multiple id="requestParticipantKeys" name="requestParticipantKeys" class="select" style="width: 350px;" value="{$requestParticipantKeys}">
+        <option></option>
+    </select>
+{/template}

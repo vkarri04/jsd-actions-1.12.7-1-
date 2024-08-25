@@ -1,0 +1,444 @@
+#disable_html_escaping()
+$webResourceManager.requireResourcesForContext("jsd-action")
+$webResourceManager.requireResourcesForContext("jsd-action-dialogs")
+$webResourceManager.requireResource("com.atlassian.auiplugin:aui-select2")
+
+<style>
+	.pillContainer {
+		display: flex;
+		box-sizing: border-box;
+		width: fit-content;
+		padding: 6px;
+		cursor: pointer;
+		background-color: #F4F5F7;
+		border-radius: 3px;
+		margin-bottom: 8px;
+	}
+
+	.pillOption {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 120px;
+		height: 24px;
+		border-radius: 3px;
+		color: #5E6C84;
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 20px;
+	}
+
+	.activeOption {
+		background-color: #42526E;
+		color: #FFFFFF;
+	}
+</style>
+
+
+#if($!action.getLicenseError())
+	#set($licenseErrorHtml = $licenseError)
+	<header id="header" role="banner" style="margin-bottom: 12px">
+		<div class="aui-message aui-message-warning" style="border-radius:0px">$licenseErrorHtml</div>
+	</header>
+
+#end
+
+<header class="aui-page-header">
+	<div class="aui-page-header-inner">
+		<div class="aui-page-header-main">
+			<h2>Workflow Actions</h2>
+		</div>
+	</div>
+</header>
+
+#set($concat = ",")
+#set($rlabs = "")
+#foreach($field in $supportedField)
+	#if($!fieldTypeMap.get($field).contains("rlabs-customfield-default-object"))
+		#set($rlabs = "$rlabs$field$concat")
+	#end
+#end
+<input id="rlabs-fields" type="hidden" value="$rlabs">
+
+<form method="post" class="aui ajs-dirty-warning-exempt" action="#">
+#if(!$transitionList)
+<div class="aui-message aui-message-info">
+    <p><b>Import from version before 1.3.2</b></p>
+    <ul>
+        <li>Make sure you have installed 4.2.8 or newer of Extension plugin</li>
+        <li>To start upgrade click on the button
+            <a class="jsd-action-import-start aui-button aui-button-primary">Import</a> to import workflow transitions from previous version of Actions for JIRA Service Desk plugin.
+        </li>
+        <p class="refresh_p_intenso" style="color: red;"></p>
+    </ul>
+</div>
+#end
+</form>
+
+
+<div class="aui-message info" style="border-radius:0px">
+	<p><b>Welcome to Workflow Actions!</b></p>
+	Here, you can set up comments created on transitions. Better yet, you have the power to add transitions to the Customer Portal.
+	<br>This way your clients will be able to give you feedback, edit their request, close or cancel it, and more. Let's get started!
+	<br>Psst, in case of any problems with setting things up, check out our <a href="https://deviniti.com/support/addon/server/actions/latest/about/" target="_blank">documentation</a>.
+</div>
+
+<form method="post" class="aui ajs-dirty-warning-exempt" action="ActionsGeneral!save.jspa">
+
+
+    <div class="field-group">
+        <label for="tcomment">Comment on transition</label>
+        <input type="text" class="text" id="tcomment" name="tcomment" value="$!action.getConfiguration().getComment()" style="max-width: 500px;">
+        <div class="description">This is a pattern for comment which is added during executing a transition from Customer Portal. You can also leave this field empty. Use %ACTION_NAME% as a transition name and %CURRENT_USER_NAME% as a user's name. Example: Transition *%ACTION_NAME%* was done by *%CURRENT_USER_NAME%*</div>
+    </div>
+
+    <div class="field-group">
+        <label for="customerUser">Customfield</label>
+        <select id="customerUser" name="customerUser" style="width:400px">
+			#set($selectedOption = $action.getConfiguration().getCfForUser())
+            <option value="-1"
+				#if($!selectedOption && $selectedOption.equals("-1"))
+                    selected
+				#end
+			>-- Don't store user object--</option>
+			#foreach($field in $supportedUserFields)
+                <option value="$field.id"
+					#if($field.id == $selectedOption)
+						selected
+					#end
+				>$field.name ($field.id)</option>
+			#end
+        </select>
+        <div class="description">Customfield to store user who affected the transition</div>
+    </div>
+
+	<div style="display: flex; align-items: flex-start">
+        <div class="field-group" style="width: 25%">
+            <label for="iconFlag">Show icon if fields exists on transitions</label>
+            <input type="checkbox" value="on" name="iconFlag" id="iconFlag" class="checkbox" #if( $action.getConfiguration().getShowIcon() ) checked="checked" #end >
+        </div>
+
+        <div class="field-group" style="display: inline-block; width: 25%">
+            <label for="iconFlag">Send e-mail on transition</label>
+            <input type="checkbox" value="on" name="mailFlag" id="mailFlag" class="checkbox" #if( $action.getConfiguration().getSendEmail() ) checked="checked" #end >
+        </div>
+
+		<div class="field-group" style="display: inline-block">
+			<label for="iconFlag">Move actions to the request view action panel (above <i>Shared with</i> section)</label>
+			<input type="checkbox" value="on" name="movePanelFlag" id="movePanelFlag" class="checkbox" #if( $action.getConfiguration().getMovePanel() ) checked="checked" #end >
+		</div>
+	</div>
+
+	<div class="buttons-container form-footer">
+		<div class="buttons"><span class="icon throbber"></span>
+        	<br/><input type="submit" value="Save" title="Press Ctrl+s to submit this form" class="aui-button aui-button-primary" accesskey="s">
+		</div>
+    </div>
+    <br/>
+ 	<div style="border-bottom: 1px solid #3B73AF"></div>
+
+</form>
+
+<form method="post" class="aui" action="ActionsGeneral!add.jspa">
+	#if($!transitionList)
+	<h2>Transitions and screens</h2>
+	<table class="aui-restfultable aui-restfultable-allowhover aui" id="transitionTable">
+		<thead>
+		 	<tr>
+				<th>Workflow and transition name</th>
+			    <th>Display name</th>
+			    <th>Description</th>
+			    <th>Fields</th>
+			    <th>Action</th>
+			</tr>
+		</thead>
+		<tbody id="transitionTableBody" class="ui-sortable">
+			#foreach ($obj in $transitionList)
+				<tr id="$obj.Id" class="transitionTr">
+					<td class="transitionTdMoveAble" style="cursor: move;" addattachmentbefore="$!obj.addAttachmentBefore" customvalidatorurl="$!obj.customValidatorUrl" #if( $!obj.hideEmpty) hideemptyfields="true" #else hideemptyfields="false" #end #if( $!obj.notifyOnComment) notifyoncomment="true" #else notifyOnComment="false" #end>$!obj.transitionName</td>
+					<td class="transitionTd">$!obj.displayName</td>
+					<td class="transitionTd" style="text-align: center;">#if($!obj.description)<p class="descriptionPreview" title="$!obj.description.replace('"', '&quot;')"><span style="color: #3B73AF; cursor: pointer;" class="aui-icon aui-icon-small aui-iconfont-watch"></span></p>#end</td>
+					<td class="transitionTd">#if($!obj.fields && $obj.fields.length() > 0)<a class="jsd-action-fields-preview" href="ActionsFieldsPreview.jspa?vid=$obj.Id">Show fields</a>#end</td>
+					<td class="transitionTd">
+						<ul class='menu'>
+							<li><a href="#AddOrEditPagePart" class="editTransition"><span class="aui-icon aui-icon-small aui-iconfont-edit" style='color: #3B73AF;' title="Edit"></span></a></li>
+							<li><a href="TranslateTransition.jspa?transitionId=$obj.Id" class="jsd-action-translate-transition" title="Translate"><img style="width: 16px; height: 16px" src="$contextPath/download/resources/com.intenso.jira.plugins.actions.jsd-actions:jsd-action-admin-resources/translate_icon.svg"/></a></li>
+							<li><span vid='$obj.Id' class='aui-icon aui-icon-small aui-iconfont-close-dialog jsd-action-remove-sec' style='color: #3B73AF; cursor:pointer;'/></li>
+						</ul>
+					</td>
+				</tr>
+			#end
+		</tbody>
+	</table>
+	<div class="description">Change order by Drag & Drop</div>
+	#end
+	<h2 id="AddOrEditPagePart">Add or Edit transition</h2>
+	<div class="field-group">
+		<label for="transition">Transition<span class="aui-icon icon-required"></span></label>
+		<select id="transitionId" name="transitionId" style="width:400px">
+			<option></option>
+			#foreach($workflow in $workflows)
+				<optgroup label="$workflow.name #if(!$workflow.active) (inactive) #end">
+					#set ( $actions =  $workflow.allActions)
+					#foreach($actionDescriptor in $actions)
+						#set ($actionName = $action.getSelectOption($actionDescriptor))
+						<option value="$workflow.name - $actionName">$actionName</option>
+					#end
+				</optgroup>
+			#end
+		</select>
+		<div class="error" data-field="transitionId" id="transitionId-error">$!errors.get("transitionId")</div>
+	</div>
+
+	<div class="field-group">
+		<label for="tuser">Display name</label>
+		<input type="text" class="text" id="transitionName" name="transitionName" value="" style="max-width: 400px;">
+		<div class="description">The name of transition shown in Customer Portal if you want different name than workflow action name translated by i18n.</div>
+	</div>
+
+    <div class="field-group">
+        <label for="hideEmptyFields">Hide empty fields</label>
+        <input type="checkbox" value="on" name="hideEmptyFields" id="hideEmptyFields" class="checkbox">
+        <div class="description">Hide fields which are empty when editing the issue.</div>
+    </div>
+
+	<div class="field-group">
+		<label for="tuser">Description</label>
+		<textarea rows="4" cols="40" name="description" id="description-field" class="textarea long-field long-field" style="max-width: 400px;"></textarea>
+		<div class="description">The description shown on trasition screen in Customer Portal.</div>
+	</div>
+
+	<div class="field-group">
+		<label for="customValidatorUrl">Custom Validator URL</label>
+		<input type="text" class="text" id="customValidatorUrl" name="customValidatorUrl" value="" style="max-width: 400px;" pattern="^/.+" oninvalid="this.setCustomValidity('Enter relative URL')" oninput="this.setCustomValidity('')">
+		<div class="description">If you want to check the fields values before Jira’s validation process, insert your validator’s relative URL (must start with a "/").</div>
+		<div class="error" data-field="customValidatorUrl" id="customValidatorUrlError">$!errors.get("customValidatorUrl")</div>
+	</div>
+
+	<div class="field-group">
+		<label for="pillContainer">Add attachments</label>
+		<div class="pillContainer" id="pillContainer">
+			<div class="pillOption activeOption" id="afterTransition">After transition</div>
+			<div class="pillOption" id="beforeTransition">Before transition</div>
+		</div>
+		<div class="description">Choose whether the transition should be validated before or after adding the attachments. If you select after and the validation is unsuccessful, the attachments will not be added to the request and also, they won’t be available for post functions.</div>
+	</div>
+
+	<div class="field-group">
+		<label for="fields">Fields & CustomFields</label>
+		<table id="fieldTable" class="aui-restfultable aui-restfultable-allowhover aui" style= "width: 90%;">
+			<tbody class="ui-sortable" id="fieldTableBody">
+			</tbody>
+		</table>
+		<div id="divAfterFieldTable"></div>
+		<select id="jsd-intenso-fieldId" name="fieldId" style="width:400px">
+			<option></option>
+			#foreach($field in $supportedField)
+				<option value="$field" type="$!fieldTypeMap.get($field)">#if($!customFieldMap.get($field))$!customFieldMap.get($field)#else$field#end</option>
+			#end
+		</select>
+		<div class="description">Fields and customfields shown on transition screen in Customer Portal.</div>
+	</div>
+
+
+
+	<input type="hidden" value="" id="screenFields" name="screenFields" class="hidden"/>
+	<input type="hidden" value="" id="requiredFields" name="requiredFields" class="hidden"/>
+	<input type="hidden" value="" id="hideCharFields" name="hideCharFields" class="hidden"/>
+	<input type="hidden" value="" id="readOnlyFields" name="readOnlyFields" class="hidden"/>
+	<input type="hidden" value="" id="useDefaultFields" name="useDefaultFields" class="hidden"/>
+	<input type="hidden" value="" id="orderId" name="orderId" class="hidden"/>
+	<input type="hidden" value="false" id="addAttachmentBefore" name="addAttachmentBefore" />
+
+	<div class="buttons-container form-footer">
+		<div class="buttons"><span class="icon throbber"></span>
+        	<br/><input type="submit" value="Add" id="saveWorkflow" title="Press Ctrl+s to submit this form" class="aui-button aui-button-primary" accesskey="s">
+		</div>
+    </div>
+
+	<section
+		id="delete-transition-confirmation-dialog"
+		class="aui-dialog2 aui-dialog2-small aui-layer"
+		role="dialog"
+		tabindex="-1"
+		aria-modal="true"
+		aria-labelledby="dialog-show-button--heading"
+		aria-describedby="dialog-show-button--description"
+		hidden
+	>
+		<header class="aui-dialog2-header">
+			<h1 class="aui-dialog2-header-main" id="dialog-show-button--heading">Delete transition</h1>
+		</header>
+		<div class="aui-dialog2-content" id="dialog-show-button--description">
+			<p>Do you want to permanently delete this transition from the list? Deleting will result in the loss of all associated data.</p>
+			<p>Click <b>Delete</b> to confirm or <b>Cancel</b> to return to the configuration.</p>
+		</div>
+		<footer class="aui-dialog2-footer">
+			<div class="aui-dialog2-footer-actions">
+				<button id="delete-transition-dialog-cancel-button" class="aui-button aui-button-standard">Cancel</button>
+				<button id="delete-transition-dialog-submit-button" class="aui-button aui-button-primary">Delete</button>
+			</div>
+		</footer>
+	</section>
+
+
+<script language="javascript" type="text/javascript">
+
+	jQuery = AJS.$;
+
+    jQuery(document).ready(function() {
+
+		var afterTransition = jQuery("#afterTransition").click(function () {
+			if (!afterTransition.hasClass("activeOption")) {
+				beforeTransition.toggleClass("activeOption");
+				afterTransition.toggleClass("activeOption");
+				jQuery("#addAttachmentBefore").attr("value", "false");
+			}
+		});
+		var beforeTransition = jQuery("#beforeTransition").click(function () {
+			if (!beforeTransition.hasClass("activeOption")) {
+				beforeTransition.toggleClass("activeOption");
+				afterTransition.toggleClass("activeOption");
+				jQuery("#addAttachmentBefore").attr("value", "true");
+			}
+		});
+
+        jQuery("#customerUser").auiSelect2();
+
+    	jQuery("#saveWorkflow").on("click", function(e) {
+    		var k = "";
+    		var j = "";
+    		var l = "";
+    		var r = "";
+    		var d = "";
+			var rows = jQuery( "#fieldTableBody tr" );
+			if(rows.length != 0) {
+		    	jQuery.each(rows, function(index) {
+		        	if(index == 0) {
+		            	k = jQuery(this).attr("id");
+		            	if((jQuery(this).attr("data-req") == "1") || (jQuery(this).attr("id") == "Summary") || (jQuery(this).attr("id") == "Reporter")) {
+		            		j = jQuery(this).attr("id");
+		            	}
+		            	if(jQuery(this).attr("data-opt") == "1") {
+		            		l = jQuery(this).attr("id");
+		            	}
+		            	if(jQuery(this).attr("data-read-only") == "1") {
+		            		r = jQuery(this).attr("id");
+		            	}
+		            	if(jQuery(this).attr("data-use-default") == "1") {
+		            		d = jQuery(this).attr("id");
+		            	}
+		        	} else {
+		            	k = k + ", " + jQuery(this).attr("id");
+		            	if((jQuery(this).attr("data-req") == "1") || (jQuery(this).attr("id") == "Summary") || (jQuery(this).attr("id") == "Reporter")) {
+                   			 if(j.length == 0) {
+                      			j = jQuery(this).attr("id");
+                    		  } else {
+		            		    j = j + ", " + jQuery(this).attr("id");
+                    		  }
+		            	}
+		            	if(jQuery(this).attr("data-opt") == "1") {
+                   			 if(l.length == 0) {
+                      			l = jQuery(this).attr("id");
+                    		  } else {
+		            		    l = l + ", " + jQuery(this).attr("id");
+                    		  }
+		            	}
+		            	if(jQuery(this).attr("data-read-only") == "1") {
+                   			 if(r.length == 0) {
+                      			r = jQuery(this).attr("id");
+                    		  } else {
+		            		    r = r + ", " + jQuery(this).attr("id");
+                    		  }
+		            	}
+		            	if(jQuery(this).attr("data-use-default") == "1") {
+                   			 if(d.length == 0) {
+                      			d = jQuery(this).attr("id");
+                    		  } else {
+		            		    d = d + ", " + jQuery(this).attr("id");
+                    		  }
+		            	}
+		        	}
+		     	});
+
+		    	jQuery("#screenFields").val(k);
+		    	jQuery("#requiredFields").val(j);
+		    	jQuery("#hideCharFields").val(l);
+		    	jQuery("#readOnlyFields").val(r);
+		    	jQuery('#useDefaultFields').val(d);
+			}
+			if(jQuery(this).attr('order-id').length > 0 ) {
+				jQuery('#orderId').val(jQuery(this).attr('order-id'));
+			} else {
+				jQuery("#orderId").val(jQuery('#transitionTableBody tr').length);
+			}
+    	});
+    	jQuery('#transitionTableBody').sortable();
+    	jQuery('.transitionTdMoveAble').mousedown(function(e) {
+ 			jQuery(this).parent().find('.transitionTd').hide();
+		});
+		jQuery('.transitionTr').mouseup(function(e) {
+  			jQuery(this).parent().find('.transitionTd').show();
+		});
+		jQuery('#transitionTableBody').on( "sortupdate", function( event, ui ) {
+			var trs = jQuery('#transitionTableBody tr')
+			var newOrder = '';
+			jQuery.each(trs, function(index) {
+  				newOrder += jQuery(this).attr('id') + '=' + index + ';';
+			});
+			newOrder = newOrder.substring(0, newOrder.length-1);
+			var trs = jQuery('#transitionTableBody tr')
+			var newOrder = '';
+			jQuery.each(trs, function(index) {
+  				newOrder += jQuery(this).attr('id') + '=' + index + ';';
+			});
+			newOrder = newOrder.substring(0, newOrder.length-1);
+
+			JIRA.SmartAjax.makeRequest({
+				url: AJS.contextPath() + "/rest/jsdaction/1.0/jsdaction/setTransitionOrder",
+				data: newOrder,
+				type: "POST",
+				contentType: "application/json",
+				dataType: "json",
+				success: function(resp, textStatus, xhr) {
+				},
+				error: function(response) {
+					JIRA.Messages.showErrorMsg("Error.");
+				}
+			});
+		});
+
+		DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+			if ('target' in node) {
+				var target = node.getAttribute('target');
+				if (target === null || target === '_self') {
+					return;
+				} else {
+					node.setAttribute('target', '_blank');
+				}
+			}
+		});
+
+		jQuery("#tcomment, #transitionName, #description-field, #customValidatorUrl").change(function (e) {
+			e.target.value = DOMPurify.sanitize(e.target.value, {ADD_ATTR: ['target']});
+		});
+
+
+		window.onbeforeunload = null;
+    });
+</script>
+
+</form>
+
+
+<!-- Start of Survicate (www.survicate.com) code -->
+<script type='text/javascript'>
+	(function(w) {
+		var s = document.createElement('script');
+		s.src = 'https://survey.survicate.com/workspaces/f032fb2bec75ce77efafec681dbe8d2e/web_surveys.js';
+		s.async = true;
+		var e = document.getElementsByTagName('script')[0];
+		e.parentNode.insertBefore(s, e);
+	})(window);
+</script>
+<!-- End of Survicate code -->

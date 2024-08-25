@@ -1,0 +1,25 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleIf.ReporterLanguage}
+
+/**
+* Draw the container for the reporter language if condition
+*/
+{template .reporterLanguageIfConditionContainer}
+    <div class="automation-servicedesk-intenso-reporter-language-if-condition-container"></div>
+{/template}
+
+/**
+* Draw the contents for the reporter language if condition
+* @param reporterLang - Selected Language for reporter
+* @param allLanguages - all languages in JIRA
+*/
+{template .setReporterLanguageForm}
+<div class="automation-servicedesk-intenso-reporter-language-if-condition-header">
+    <b>Language:</b>
+</div>
+<select id="reporterLangSelect" name="reporterLangSelect" style="min-width: 250px;">
+    <option value=""></option>
+    {foreach $language in $allLanguages}
+    <option {if $reporterLang and $reporterLang == $language.v1} selected = "selected" {/if} value="{$language.v1}">{$language.v2}</option>
+    {/foreach}
+</select>
+{/template}

@@ -1,0 +1,17 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleIf.ReporterEmailContains}
+
+/**
+* Draw the container for the reporter email contains if condition
+*/
+{template .reporterEmailContainsIfConditionContainer}
+    <div class="automation-servicedesk-reporter-email-contains-if-condition-container"></div>
+{/template}
+
+/**
+* Draw the contents of the reporter email contains if condition
+* @param emailPart the part of email
+*/
+{template .drawReporterEmailContainsForm}
+    <div class="automation-servicedesk-reporter-email-contains-if-condition-header"><b>Email contains: </b></div>
+    <input type="text" name="emailPart" value="{$emailPart}" class="text long-field">
+{/template}

@@ -1,0 +1,110 @@
+#disable_html_escaping()
+<head>
+    <meta name="contextPath" content="$contextPath"/>
+</head>
+
+<h2 class="aui-popup-heading">Translate transition</h2>
+
+<form method="post" id="translate-transition-form" class="aui" action="TranslateTransition.jspa">
+    <div class="form-body" style="max-height: 500px;">
+
+        <input type="hidden" class="hidden" id="translatetransitionId" value="$transitionId"/>
+
+        <div class="field-group">
+            <label for="translate-transition-lang">Language code: </label>
+            <select class="select" id="transition-lang-select">
+                <option></option>
+                #foreach ($lang in $languageKeys)
+                    <option value="$lang">$lang</option>
+                #end
+            </select>
+        </div>
+
+        <div class="field-group">
+            <label for="display-name-transition">Display name: </label>
+            <input id="display-name-transition" value="" type="text" class="text" disabled="disabled"/>
+        </div>
+
+        <div class="field-group">
+            <label for="description-transition">Description: </label>
+            <textarea id="description-transition" type="text" class="textarea" disabled="disabled" cols="40" rows="4"></textarea>
+
+
+        <a id="transition-translation-save-button" class="aui-button aui-button-primary" style="position: absolute; bottom: 0px; margin-left: 5px; margin-bottom: 5px;" disabled="disabled">Save</a>
+        </div>
+    </div>
+
+    <div class="buttons-container form-footer">
+        <div class="buttons"><span class="icon throbber"></span>
+            <a title="Press Ctrl+` to cancel" id="cancel" href="./ActionsGeneral.jspa" class="aui-button aui-button-link cancel" accesskey="`">Close</a>
+        </div>
+    </div>
+
+<script language="javascript" type="text/javascript">
+
+    jQuery = AJS.$;
+
+    jQuery(document).ready(function() {
+        var transitionId = jQuery("#translatetransitionId").val();
+        var langSelect = jQuery("#transition-lang-select");
+        var displayNameInput = jQuery("#display-name-transition");
+        var descriptionTextArea = jQuery("#description-transition");
+
+        jQuery("#transition-lang-select").on("change", function() {
+            var lang = langSelect.val();
+            displayNameInput.val("");
+            descriptionTextArea.val("");
+            if(lang.length == 0) {
+                displayNameInput.attr("disabled", "disabled");
+                descriptionTextArea.attr("disabled", "disabled");
+                jQuery("#transition-translation-save-button").attr("disabled", "disabled");
+            } else {
+                jQuery.ajax ({
+                    url: window.contextPath + "/rest/jsdaction/1.0/jsdaction/getTranslatedTransition?transitionId="+transitionId+"&lang="+lang,
+                    type: "POST",
+                    dataType: "json",
+                    contentType: "application/json; charset=utf-8",
+                    success: function(data){
+                        displayNameInput.attr("disabled", null);
+                        descriptionTextArea.attr("disabled", null);
+                        jQuery("#transition-translation-save-button").attr("disabled", null);
+                        if(data) {
+                            displayNameInput.val(data[0].v1);
+                            descriptionTextArea.val(data[0].v2);
+                        }
+                    },
+                    error: function(text, status){
+                        console.log("error" + text + status);
+                    }
+                });
+            }
+        });
+
+        jQuery("#transition-translation-save-button").on("click", function() {
+            const data = new Object();
+            data.transitionId = transitionId;
+            data.lang = langSelect.val();
+            data.displayName = displayNameInput.val();
+            data.description =  descriptionTextArea.val();
+            window.onbeforeunload = null;
+
+            jQuery.ajax ({
+                url: window.contextPath + "/rest/jsdaction/1.0/jsdaction/saveTranslatedTransition",
+                data: JSON.stringify(data),
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function(){
+                    location.href = "./ActionsGeneral.jspa"
+                    JIRA.Messages.showSuccessMsg("<p>Translation has been saved successfully.</p>");
+                },
+                error: function(text, status){
+                    console.log("error" + text + status);
+                }
+            });
+        });
+
+    });
+</script>
+
+</form>

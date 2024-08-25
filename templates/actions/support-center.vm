@@ -1,0 +1,6 @@
+#disable_html_escaping()
+$webResourceManager.requireResourcesForContext("actions-support-center-resources")
+<head>
+    <meta name="contextPath" content="$contextPath"/>
+</head>
+<div id="actionsSupportCenter"></div>

@@ -1,0 +1,962 @@
+$webResourceManager.requireResource('com.intenso.jira.plugins.actions.jsd-actions:jsd-action-resources')
+#set($calendarDataObjectWithHtml = $calendarDataObject)
+
+
+<input id="jsd-action-intensoIssueKey" type="hidden" value="$issueKey">
+<input id="jsd-action-contextPath" type="hidden" value="$contextPath">
+<input id="jsd-action-cancelText" type="hidden" value="$cancelText">
+<input id="jsd-action-serviceDeskId" type="hidden" value="$serviceDeskId">
+<input id="jsd-action-customValidatorUrls" type="hidden" value="$customValidatorUrls">
+
+<div id="jsd-actions-movable-panel" style="margin-top: 20px;">
+    $!resultHtml
+</div>
+
+<script language="javascript" type="text/javascript">
+    jQuery = AJS.$;
+
+    (function () {
+        if(!'$calendarResource') {
+            var head = document.getElementsByTagName('head')[0];
+
+            var script = document.createElement('script');
+            script.src = '$contextPath' + '$calendarResource';
+            script.type = 'text/javascript';
+
+            head.appendChild(script)
+        }
+    })();
+
+    setTimeout(function() {
+        if ("$movePanel" === "true") {
+            var jiraActionsPanel = jQuery(".cv-request-actions.customer-request-actions");
+            if (jiraActionsPanel.length) {
+                jQuery("#jsd-actions-movable-panel").insertAfter(jiraActionsPanel.last());
+            }
+        }
+    }, 50);
+
+    function getUrl() {
+        return new URL(window.parent.location.href);
+    }
+
+    function setUrl(url) {
+        window.parent.history.replaceState(null, null, url.toString());
+    }
+
+    function setParams(transitionId, transitionName) {
+        var url = getUrl();
+        url.searchParams.set('actionsTransitionId', transitionId);
+        url.searchParams.set('actionsTransitionName', transitionName);
+        setUrl(url);
+    }
+
+    function removeParams() {
+        var url = getUrl();
+        url.searchParams.delete('actionsTransitionId');
+        url.searchParams.delete('actionsTransitionName');
+        setUrl(url);
+    }
+
+    function areParamsSet(urlParams) {
+        return urlParams.has('actionsTransitionId') && urlParams.has('actionsTransitionName');
+    }
+
+    function openDialogIfParamsSet() {
+        var urlParams = getUrl().searchParams;
+        if (areParamsSet(urlParams)) {
+            transitionIssueWithScreen(
+                    urlParams.get('actionsTransitionId'),
+                    urlParams.get('actionsTransitionName')
+            );
+        }
+    }
+
+    jQuery(document).ready(function() {
+        setTimeout(openDialogIfParamsSet, 50);
+    });
+
+    var RLABSgetRequestTypeBackup;
+    var RLABSgetJIRAFormDataBackup;
+
+    function overrideRLABS () {
+        if (typeof RLABS !== "undefined") {
+            RLABSgetRequestTypeBackup = RLABS.CustomField.getRequestType;
+            RLABSgetJIRAFormDataBackup = RLABS.CustomField.getJIRAFormData;
+            RLABS.CustomField.getRequestType = function() {
+                return "$requestTypeId"
+            }
+            RLABS.CustomField.getJIRAFormData = function() {
+                var formData = [];
+                /* Normal create/edit */
+                var sdScreenForm = AJS.$("form#action");
+                if (sdScreenForm.length) {
+                    sdScreenForm.serializeArray().reduce(function (obj, item) {
+                        formData.push({fieldId: item.name, value: item.value});
+                    }, {});
+                    // Add read-only selects values
+                    sdScreenForm.find("[disabled][name]").each(function (i, element) {
+                        formData.push({fieldId: element.name, value: element.value});
+                    });
+                    /* Bulke edit */
+                }
+                var insightReadOnly = AJS.$("form#action .insight-readonly");
+                if (insightReadOnly.length) {
+                    insightReadOnly.each(function () {
+                        var value = AJS.$(this).attr("value");
+                        var fieldId = AJS.$(this).attr("id");
+                        if (value.length && value.includes(",")) {
+                            formData.push({fieldId: fieldId + "_multi", value: value.replaceAll(",", " ")});
+                            var values = value.split(",");
+                            for (var i = 0; i < values.length; i++) {
+                                formData.push({fieldId, value: values[i]});
+                            }
+                        } else {
+                            formData.push({fieldId, value});
+                        }
+                    });
+                }
+
+                // /* Check if reporter already exists, otherwise add it */
+                var reporterExists = false;
+                if (formData.forEach(function(i, data) {
+                    reporterExists |= data.fieldId == "reporter" ? true : false;
+
+                    /* Check some form data for special treatment, any "projectid" should be "pid" to make it equal to JIRA Core */
+                    if (data.fieldId == "projectId") {
+                        formData.push({fieldId: "pid", value: data.value});
+                    }
+                }));
+
+                /* If no reporter added, add this manually */
+                if (!reporterExists) {
+                    formData.push({fieldId: "reporter", value: RLABS.CustomField.getCurrentReporter()});
+                }
+
+                return formData;
+            }
+
+            // needed for controlSDCustomFieldEntries
+            var loggedInUser = jQuery("meta[name=loggedInUser]").attr("content");
+            if (!(loggedInUser && loggedInUser.length)) {
+                jQuery("head").append("<meta name=\"loggedInUser\" content=\"$loggedInUser\">");
+            }
+        }
+    }
+
+    function restoreRLABS () {
+        if (RLABSgetRequestTypeBackup) {
+            RLABS.CustomField.getRequestType = RLABSgetRequestTypeBackup;
+        }
+        if (RLABSgetJIRAFormDataBackup) {
+            RLABS.CustomField.getJIRAFormData = RLABSgetJIRAFormDataBackup;
+        }
+    }
+
+    function transitionIssueNoScreen(transitionId) {
+
+        var issueKey = jQuery("#jsd-action-intensoIssueKey").val();
+        var contextPath = jQuery("#jsd-action-contextPath").val();
+
+        jQuery.ajax ({
+            url: '$contextPath' + "/rest/jsdaction/1.0/jsdaction/transition?issueKey="+issueKey+"&transitionId="+transitionId,
+            type: "POST",
+            dataType: "text",
+            contentType: "application/json; charset=utf-8",
+            success: function(){
+                location.reload();
+            },
+            error: function(text, status){
+                console.log("error" + text + status);
+            }
+        });
+    }
+
+    function format(state) {
+        var originalOption = state.element;
+
+        return "<img class=\'jsd-user-picker-avatar\' src=\'" + jQuery(originalOption).data('foo') + "\'/>" + state.text;
+    }
+
+    function format2(state) {
+        var originalOption = state.element;
+
+        return "<img class=\'jsd-multi-user-picker-avatar\' src=\'" + jQuery(originalOption).data('foo') + "\'/>" + state.text;
+    }
+
+    function formatrq(state) {
+        var originalOption = state.element;
+
+        return '<span class=\"sd-recent-rt vp-rq-icon vp-rq-icon-'+jQuery(originalOption).data('foo')+'\"></span>' + state.text;
+    }
+
+    function updateWidthJsdActionTransitionScreen(dialog) {
+        jQuery("#transition-wizzard-dialog").css("max-width", "98%");
+        var newWidth = parseInt(jQuery("#transition-wizzard-dialog").css("width"), 10);
+        var newMarginLeft = newWidth / (-2);
+        jQuery("#transition-wizzard-dialog").css("margin-left", newMarginLeft);
+    }
+
+    function updateHeightJsdActionTransitionScreen(dialog) {
+        dialog.updateHeight();
+        if(isInExtensionThemeIFrame()) {
+            hideDialogBlanket();
+            jQuery("#transition-wizzard-dialog").css("top", "5px");
+            jQuery("#transition-wizzard-dialog").css("margin-top", 0);
+        } else {
+            var newHeight = parseInt(jQuery("#transition-wizzard-dialog").css("height"), 10);
+            var newMarginTop = newHeight / (-2);
+            jQuery("#transition-wizzard-dialog").css("margin-top", newMarginTop);
+        }
+    }
+
+    function hideDialogBlanket() {
+        jQuery(".aui-blanket").hide();
+    }
+
+    function isInExtensionThemeIFrame() {
+        return window.parent.location !== window.location && window.parent.location.href.includes("plugins/servlet/theme");
+    }
+
+    function transitionIssueWithScreen(transitionId, transitionName) {
+        var issueKey = jQuery("#jsd-action-intensoIssueKey").val();
+        var cancelText = jQuery("#jsd-action-cancelText").val();
+        var serviceDeskId = jQuery("#jsd-action-serviceDeskId").val();
+        var customValidatorUrl = JSON.parse(jQuery("#jsd-action-customValidatorUrls").val())[transitionId];
+        var temporaryFiles = [];
+
+        overrideRLABS();
+        jQuery('#transition-wizzard-dialog').remove();
+
+        jQuery.ajax({
+            url: '$contextPath' + "/rest/jsdaction/1.0/jsdaction/screentrans?issueKey=" + issueKey + "&transitionId=" + transitionId + "&csId=" + serviceDeskId,
+            type: "POST",
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (data) {
+                if (!data.screenFields) {
+                    removeParams();
+                    transitionIssueNoScreen(transitionId);
+                    return;
+                }
+
+                var dialog = new AJS.Dialog({
+                    width: 860,
+                    height: 800,
+                    id: "transition-wizzard-dialog",
+                    closeOnOutsideClick: false
+                });
+                dialog.addHeader(transitionName);
+                jQuery("h2.dialog-title").html(transitionName);
+                dialog.addPanel("SinglePanel", data.resultHTML);
+                setParams(transitionId, transitionName);
+
+                function onSubmit() {
+                    var fields = data.screenFields.split(",");
+                    jQuery('#jsd-dialog-error').html("");
+                    if (jQuery('#jsd-dialog-error').hasClass("aui-message"))
+                        jQuery('#jsd-dialog-error').removeClass("aui-message");
+                    if (jQuery('#jsd-dialog-error').hasClass("aui-message-error"))
+                        jQuery('#jsd-dialog-error').removeClass("aui-message-error");
+                    var map = "{ \"issueKey\" : \"" + issueKey + "\", \"transitionId\" : \"" + transitionId + "\", ";
+                    for(var i = 0; i < fields.length; i++) {
+                        var obj = jQuery("#action #" + fields[i]);
+                        if (obj.hasClass("jsd-multi-select")) {
+                            var values = obj.next().text().split("×"); // we are using multiplication sign "×" (&#215) as a separator between values, whitespaces are preserved in text()
+                            values = values ? "[" + values.map(function(value) {return JSON.stringify(value)}) + "]" : "[]";
+                            map += "\"" + fields[i] + "\" : " + values + ", ";
+                        } else if (obj.hasClass("jsd-multi-checkboxes")) {
+                            var selectedCheckboxes = obj
+                                    .children()
+                                    .map(function () {return this.firstChild})
+                                    .filter(function() {return this.checked})
+                                    .map(function () {return this.value})
+                                    .get()
+                                    .map(function(v) {return JSON.stringify(v)})
+                            map += "\"" + fields[i] + "\" : [" + selectedCheckboxes + "], ";
+                        } else if (obj.hasClass("jsd-cascading-select-parent")) {
+                            var parentOption = obj.find(':selected');
+                            if (parentOption.attr('id') == null) {
+                                map += "\"" + fields[i] + "\" : \"\", ";
+                            } else {
+                                var parentOptionId = parentOption.attr('id');
+                                var childOption = jQuery('#action #' + fields[i]+'-1').find(':selected');
+                                if(childOption.attr('id') == null) {
+                                    map += "\"" + fields[i] + "\" : { \"0\": \"" + parentOptionId + "\", \"1\": \"\" }, ";
+                                } else {
+                                    map += "\"" + fields[i] + "\" : { \"0\": \"" + parentOptionId + "\", \"1\": \"" + childOption.attr('id') +"\" }, ";
+                                }
+                            }
+                        } else if (obj.hasClass("jsd-select-id-picker")) {
+                            var option = obj.find(':selected');
+                            if (option.attr('id') == null) {
+                                map += "\"" + fields[i] + "\" : \"\", ";
+                            } else {
+                                map += "\"" + fields[i] + "\" : \"" + option.attr('id') + "\", ";
+                            }
+                        } else if (obj.hasClass("jsd-user-picker")) {
+                            var selectedUser = obj.val();
+                            var value = selectedUser ? "\"" + selectedUser + "\"" : null;
+                            map += "\"" + fields[i] + "\" : " + value + ", ";
+                        } else if (obj.hasClass("jsd-multi-user-picker")) {
+                            var f = obj.select2intenso('val');
+                            if(f != null && f.length > 0) {
+                                map += "\""+fields[i] + "\" : [";
+                                for(j = 0; j < f.length; j++) {
+                                    map += "\""+f[j]+"\"";
+                                    if(j!= f.length-1) {
+                                        map+=",";
+                                    }
+                                }
+                                map += "], ";
+                            } else {
+                                map += "\"" + fields[i] + "\" : [], ";
+                            }
+                        } else if (obj.hasClass("jsd-intenso-elect-sign")){
+                            var u = jQuery("#action #"+fields[i]);
+                            var p = u.next();
+                            var password  = encodeURIComponent(p.val());
+                            map += "\""+fields[i] + "\" : { \"user\" : \"" + u.val().replace(/\"/g, "\\\"") +"\", \"pass\" : \"" + password  + "\"}, ";
+                        } else if(fields[i] == "Attachment") {
+                            if(jQuery(".jsd-attachment-error").length > 0){
+                                jQuery('#jsd-dialog-error').addClass("aui-message");
+                                jQuery('#jsd-dialog-error').addClass("aui-message-error");
+                                jQuery('#jsd-dialog-error').css('width', '58%');
+                                jQuery('#jsd-dialog-error').html("<p class=\"title\"><strong>" + "To submit please delete all files that can\'t be uploaded" + "</strong></p>");
+                                updateHeightJsdActionTransitionScreen(dialog);
+                                return;
+                            } else {
+                                jQuery(".jsd-attachment").each(function() {
+                                    var attachTemp = {};
+                                    attachTemp["fileType"] = jQuery(this).attr("filetype");
+                                    attachTemp["fileSize"] = jQuery(this).attr("filesize");
+                                    attachTemp["fileName"] = jQuery(this).attr("fileName");
+                                    attachTemp["temporaryAttachmentId"] = jQuery(this).attr("temporaryAttachmentId");
+
+                                    temporaryFiles.push(attachTemp);
+                                });
+
+                                map += "\"" + "Attachment" + "\" : " + JSON.stringify(temporaryFiles) + ", ";
+                            }
+                        } else if (obj.hasClass("jsd-radio-buttons")) {
+                            var checkedValue = obj.find("input:checked").val();
+                            map += "\"" + fields[i] + "\" : " + (checkedValue === "none" || !checkedValue ? null : JSON.stringify(checkedValue)) + ", ";
+                        } else if (obj.hasClass("jsd-select")) {
+                            var fieldVal = obj.next().text();
+                            var firstOption = obj.children().first();
+                            var isSelectWithNoneOption = !firstOption.attr("id")
+                            if (isSelectWithNoneOption && (fieldVal === firstOption.val())) {
+                                fieldVal = null;
+                                map += "\"" + fields[i] + "\" : " + fieldVal + ", ";
+                            } else if(typeof fieldVal == "string") {
+                                fieldVal = fieldVal.replace(/"/g, "\\\"");
+                                map += "\"" + fields[i] + "\" : \"" + fieldVal + "\", ";
+                            }
+                        } else if (obj.hasClass("insight-readonly")) {
+                            map += "\"" + fields[i] + "\" : \"" + obj.attr("value") + "\", ";
+                        } else {
+                            var fieldVal = obj.val();
+                            if(typeof fieldVal == "string") {
+                                fieldVal = fieldVal.replace(/\\/g, "\\\\");
+                                fieldVal = fieldVal.replace(/\"/g, "\\\"");
+                            }
+                            map += "\"" + fields[i] + "\" : \"" + fieldVal + "\", ";
+                        }
+                    }
+                    map = map.substring(0, map.length - 2) + " }";
+
+                    //map = encodeURIComponent(map);
+
+                    function displayErrorMessage(message) {
+                        hideSpinner(jQuery('#edit-issue-submit')[0]);
+                        jQuery('#jsd-dialog-error').addClass("aui-message");
+                        jQuery('#jsd-dialog-error').addClass("aui-message-error");
+                        jQuery('#jsd-dialog-error').css('width', '58%');
+                        jQuery('#jsd-dialog-error').html("<p class=\"title\"><strong>" + message + "</strong></p>");
+                        updateHeightJsdActionTransitionScreen(dialog);
+                    }
+
+                    function validateTransitionByJira(fields) {
+                        jQuery.ajax({
+                            url: '$contextPath' + "/rest/jsdaction/1.0/jsdaction/validtransition",
+                            data: fields,
+                            type: "POST",
+                            contentType: "application/json; charset=UTF-8",
+                            dataType: "text",
+                            success: function(data) {
+                                if (!data) {
+                                    restoreRLABS();
+                                    removeParams();
+                                    dialog.hide();
+                                    location.reload();
+                                } else {
+                                    displayErrorMessage(data);
+                                }
+                            }
+                        });
+                    }
+
+                    if (!!customValidatorUrl) {
+                        jQuery.ajax({
+                            url: '$contextPath' + customValidatorUrl,
+                            data: map,
+                            type: "POST",
+                            contentType: "application/json; charset=UTF-8",
+                            dataType: "text",
+                            success: function() {
+                                validateTransitionByJira(map);
+                            },
+                            error: function(xhr) {
+                                if (xhr.status === 404) {
+                                    displayErrorMessage("Custom validator's URL is broken. Contact your administrator.");
+                                } else {
+                                    displayErrorMessage(xhr.responseText);
+                                }
+                            }
+                        });
+                    } else {
+                        validateTransitionByJira(map);
+                    }
+                };
+
+                dialog.addLink(cancelText, function (dialog) {
+                    removeParams();
+                    dialog.hide();
+                    restoreRLABS();
+                }, "#");
+
+                dialog.gotoPage(0);
+                dialog.gotoPanel(0);
+                dialog.show();
+                jQuery('#transition-wizzard-dialog .dialog-button-panel')
+                        .prepend( '<button style="background: none 0px 0px repeat scroll rgb(53, 114, 176); border-color: transparent; color: rgb(255, 255, 255); font-weight: bold; text-shadow: none;" class="button-panel-button aui-button" id="edit-issue-submit" name="Edit"  >'+transitionName+'</button>' );
+                jQuery('#edit-issue-submit').click(function(){
+                    if(document.getElementById("action").reportValidity()) {
+                        showSpinner(this);
+                        onSubmit();
+                        temporaryFiles = [];
+                    };
+                });
+
+                jQuery('.button-panel-button').css('background', 'none repeat scroll 0 0 #3572b0');
+                jQuery('.button-panel-button').css('border-color', 'transparent');
+                jQuery('.button-panel-button').css('color', '#fff');
+                jQuery('.button-panel-button').css('font-weight', 'bold');
+                jQuery('.button-panel-button').css('text-shadow', 'none');
+
+                function showSpinner(button) {
+                    button.busy();
+                    jQuery(button).find("aui-spinner").css('color', '#fff');
+                    jQuery(button).attr("disabled", "");
+                }
+
+                function hideSpinner(button) {
+                    button.idle();
+                    jQuery(button).removeAttr("disabled");
+                }
+
+                //hide empty fields
+                var emptyfieldsToHide = jQuery('.jsd-extender-field-to-hide');
+                jQuery.each(emptyfieldsToHide, function () {
+                    jQuery(this).closest(".jsd-field-group").hide();
+                });
+
+                updateHeightJsdActionTransitionScreen(dialog);
+
+                updateWidthJsdActionTransitionScreen(dialog);
+
+                String.prototype.escapejQuerySelector = function () {
+                    return this.replace(/([:.])/g, "\\$1");
+                };
+
+                (function initializeCalendar() {
+                    const calendarDateData = ($calendarDataObjectWithHtml).calendarDateData;
+                    Calendar._DN = calendarDateData.weekdays;
+                    Calendar._SDN = calendarDateData.weekdaysShort;
+                    Calendar._MN = calendarDateData.months;
+                    Calendar._SMN = calendarDateData.monthsShort;
+                })();
+
+                // date picker
+                var dateField = jQuery('.jsd-date-field');
+                jQuery.each(dateField, function (index) {
+                    var dateFieldId = jQuery(this).attr("id");
+                    var datePattern = jQuery(this).attr("date-pattern");
+                    Calendar.setup({
+                        firstDay: 0,
+                        inputField: dateFieldId,
+                        button: dateFieldId + '_trigger',
+                        align: 'Br',
+                        singleClick: true,
+                        showsTime: false,
+                        useISO8601WeekNumbers: $useISO8601,
+                        ifFormat: datePattern
+                    });
+                });
+
+                // date-time picker
+                var datetimeField = jQuery('.jsd-date-time-field');
+                jQuery.each(datetimeField, function (index) {
+                    var dateTimeFieldId = jQuery(this).attr("id");
+                    var datePattern = jQuery(this).attr("date-pattern");
+                    var timePattern = jQuery(this).attr("time-pattern");
+                    var formatForTime = '12';
+                    if(timePattern.indexOf('%H') > -1) {
+                        formatForTime = '24';
+                    }
+                    Calendar.setup({
+                        firstDay: 0,
+                        inputField: dateTimeFieldId,
+                        button: dateTimeFieldId + '_trigger',
+                        align: 'Br',
+                        singleClick: true,
+                        showsTime: true,
+                        useISO8601WeekNumbers: $useISO8601,
+                        ifFormat: datePattern,
+                        timeFormat: formatForTime
+                    });
+                });
+
+                // multi-select
+                jQuery(".jsd-multi-select").select2intenso();
+                // single-select
+                jQuery(".jsd-select").select2intenso();
+
+
+                jQuery(".jsd-multi-user-picker, .jsd-user-picker").each( function () {
+                    jQuery(this).select2intenso({
+                        width: "100%",
+                        allowClear: true,
+                        placeholder: "Select user",
+                        ajax: {
+                            url: '$contextPath' + "/rest/servicedesk/1/customer/user-search",
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                var field = jQuery(this);
+                                var fieldName = field.attr('id').charAt(0).toLowerCase() + field.attr('id').slice(1);
+                                return {
+                                    query: params.term,
+                                    fieldName: fieldName,
+                                    projectId : field.attr('projectId'),
+                                    fieldConfigId: field.attr('fieldConfigId')
+                                };
+                            },
+                            processResults: function (data, params) {
+                                var objects = [];
+                                jQuery.each( data, function( key, value ) {
+                                    var item = {};
+                                    item ["id"] = value.id;
+                                    item ["text"] = value.displayName;
+                                    item ["html"] = '<span><img src="' + value.avatar + '" height="16" width="16"/> ' + value.displayName + ' <span style="font-size: 12.6px;">' + value.emailAddress + '</span></span>';
+                                    objects.push(item);
+                                });
+                                return {
+                                    results: objects
+                                };
+                            },
+                            cache: true,
+                        },
+                        minimumInputLength: 1,
+                        templateResult: function(state) {
+                            if (state.html) { return jQuery(state.html); }
+                            if (state.text) { return state.text; }
+                            return state.name;
+                        },
+                        templateSelection: function(state) {
+                            if (state.text) { return state.text; } return state.name;
+                        }
+                    });
+                })
+
+                //Intenso request type
+                jQuery(".jsd-request-type").select2intenso({
+                    allowClear: true,
+                    formatResult: formatrq,
+                    formatSelection: formatrq,
+                    escapeMarkup: function (m) {
+                        return m;
+                    }
+                });
+
+                //Satisfaction feedback cf
+                jQuery(".sd-feedback-star").on("mouseover", function () {
+                    var i = jQuery(this).html();
+                    var stars = jQuery(".sd-feedback-star");
+                    jQuery.each(stars, function (index) {
+                        if (index < i) {
+                            jQuery(this).removeClass("aui-iconfont-unstar");
+                            jQuery(this).addClass("aui-iconfont-star");
+                        } else {
+                            jQuery(this).removeClass("aui-iconfont-star");
+                            jQuery(this).addClass("aui-iconfont-unstar");
+                        }
+                    });
+                });
+
+                jQuery(".sd-feedback-star").on("mouseout", function () {
+                    var i = jQuery(".intenso-jsd-satisfaction-value").val();
+                    var stars = jQuery(".sd-feedback-star");
+                    jQuery.each(stars, function (index) {
+                        if (index < i) {
+                            jQuery(this).removeClass("aui-iconfont-unstar");
+                            jQuery(this).addClass("aui-iconfont-star");
+                        } else {
+                            jQuery(this).removeClass("aui-iconfont-star");
+                            jQuery(this).addClass("aui-iconfont-unstar");
+                        }
+                    });
+                });
+
+                jQuery(".sd-feedback-star").on("click", function () {
+                    var i = jQuery(this).html();
+                    jQuery(".intenso-jsd-satisfaction-value").val(i);
+                });
+
+                jQuery(".jsd-cascading-select-parent").on("change", function() {
+                    //issueKey
+                    var cfId = jQuery(this).attr("id");
+                    var option = jQuery(this).find(':selected');
+                    var childCf = jQuery('#'+cfId+'-1');
+                    childCf.html("<option></option>");
+                    if (option.attr('id') == null) {
+                        //childCf.select2intenso("destroy").select2intenso({});
+                    }  else {
+                        jQuery.ajax({
+                            url: '$contextPath' + "/rest/jsdaction/1.0/jsdaction/cascadingselectchilds?issuekey=" + issueKey + "&cfid=" + cfId + "&optionid=" + option.attr('id'),
+                            type: "POST",
+                            dataType: "json",
+                            contentType: "application/json; charset=utf-8",
+                            success: function (resp) {
+                                for(var j=0; j<resp.length; j++) {
+                                    childCf.append("<option id=\""+ resp[j].v1+"\">"+ resp[j].v2+"</option>");
+                                }
+                                //childCf.select2intenso("destroy").select2intenso({});
+                            }
+                        });
+                    }
+                });
+
+                jQuery(".jsd-labels-field").select2intenso({
+                    width: "100%",
+                    allowClear: true,
+                    ajax: {
+                        url: '$contextPath' + "/rest/jsdaction/1.0/jsdaction/labels/search",
+                        dataType: 'json',
+                        delay: 250,
+                        type: "POST",
+                        contentType: "application/json; charset=utf-8",
+                        data: function (params) {
+                            return JSON.stringify({
+                                issueKey,
+                                query: params.term,
+                            });
+                        },
+                        processResults: function (data = []) {
+                            const results = data.map((label) => ({ id: label, text: label }));
+                            return { results };
+                        },
+                        cache: true,
+                        minimumInputLength: 1,
+                        templateResult: function(state) {
+                            return state.text;
+                        },
+                        templateSelection: function(state) {
+                            return state.text;
+                        }
+                    },
+                });
+
+                jQuery(window).on("orientationchange",function(){
+                    updateHeightJsdActionTransitionScreen(dialog);
+                    updateWidthJsdActionTransitionScreen(dialog);
+                });
+
+                function handleFileSelect(evt) {
+                    var files = evt.target.files; // FileList object
+                    var serviceDeskId = jQuery("#jsd-action-serviceDeskId").val();
+
+                    var output = [];
+                    for (var i = 0, file; file = files[i]; i++) {
+                        var formData = new FormData();
+                        if (file.name.includes("\\")) {
+                            var blob = file.slice(0, file.size, file.type);
+                            var newName = file.name.slice("\\").pop();
+                            formData.append("file", blob, newName);
+                        } else {
+                            formData.append("file", file, file.name);
+                        }
+                        jQuery.ajax({
+                            url: '$contextPath' + "/rest/servicedeskapi/servicedesk/" + serviceDeskId + "/attachTemporaryFile",
+                            headers: {"X-Atlassian-Token": "no-check", "X-ExperimentalApi": "opt-in"},
+                            type: 'POST',
+                            data: formData,
+                            async: false,
+                            cache: false,
+                            contentType: false,
+                            enctype: 'multipart/form-data',
+                            processData: false,
+                            success: function (response) {
+                                var attach = response.temporaryAttachments[0];
+                                attach["fileSize"] = file.size;
+                                attach["fileType"] = file.type;
+                                attach["fileName"] = file.name;
+
+                                output.push('<p class=\"jsd-attachment\" fileType=\"', attach["fileType"], '\" fileSize=\"', attach["fileSize"], '\" fileName=\"', attach["fileName"], '\" temporaryAttachmentId=\"', attach["temporaryAttachmentId"], '\" style=\"overflow-wrap: break-word;\"><strong>', file.name, '</strong> (', file.type || 'n/a', ') - ',
+                                        file.size, ' bytes <span vid=\"1\" class=\"aui-icon aui-icon-small aui-iconfont-close-dialog jsd-action-remove-attachment\" style=\"color: #3B73AF; cursor:pointer;\"></span></p>');
+                                updateHeightJsdActionTransitionScreen(dialog);
+                            },
+                            error: function(XMLHttpRequest, textStatus, errorThrown) {
+                                var status = XMLHttpRequest.status;
+                                output.push('<p class=\"jsd-attachment jsd-attachment-error\" style=\"color: red\"><strong>', file.name, '</strong> (', file.type || 'n/a', ') - ',
+                                        file.size, ' bytes <span vid=\"1\" class=\"aui-icon aui-icon-small aui-iconfont-close-dialog jsd-action-remove-attachment\" style=\"color: #3B73AF; cursor:pointer;\"></span></p>');
+                                if(status == 400) {
+                                    jQuery('#jsd-dialog-error').addClass("aui-message");
+                                    jQuery('#jsd-dialog-error').addClass("aui-message-error");
+                                    jQuery('#jsd-dialog-error').css('width', '58%');
+                                    jQuery('#jsd-dialog-error').html("<p class=\"title\"><strong>" + "Attachment is not valid or exceed the maximum configured attachment size." + "</strong></p>");
+                                    updateHeightJsdActionTransitionScreen(dialog);
+                                }
+                                else if(status == 403) {
+                                    jQuery('#jsd-dialog-error').addClass("aui-message");
+                                    jQuery('#jsd-dialog-error').addClass("aui-message-error");
+                                    jQuery('#jsd-dialog-error').css('width', '58%');
+                                    jQuery('#jsd-dialog-error').html("<p class=\"title\"><strong>" + "Attachment is disabled or you don\'t have permission to add attachments" + "</strong></p>");
+                                    updateHeightJsdActionTransitionScreen(dialog);
+                                }
+                            }
+                        });
+                    }
+                    jQuery('#intenso-attachment-list').find('div').first().append(output.join(''));
+                }
+
+                if(jQuery('#intenso-attachment').length != 0) {
+                    document.getElementById('intenso-attachment').addEventListener('input', handleFileSelect, false);
+
+                    jQuery(document).on('click', '.jsd-action-remove-attachment', function () {
+                        let tempFileName = jQuery(this).parent().attr("fileName");
+                        let files = document.getElementById('intenso-attachment').files;
+                        const dt = new DataTransfer()
+                        for (let i = 0; i < files.length; i++) {
+                            if (files[i].name !== tempFileName) {
+                                dt.items.add(files[i])
+                            }
+                        }
+                        document.getElementById('intenso-attachment').files = dt.files
+                        jQuery(this).parent().remove();
+
+                        updateHeightJsdActionTransitionScreen(dialog);
+                    });
+                }
+
+                // Insight custom fields
+
+                var isJira9_2Higher = $isJira9_2Higher;
+                var fieldset = jQuery("#action fieldset");
+                var insightCustomFields = [];
+                var assetsUrl = '$contextPath' + '$assetsEndpoint' + "customfield/objects?objectKeys=";
+                fieldset.find("input.insight-cf").each(function (_, value) {
+                    insightCustomFields.push(value.dataset.id);
+                });
+
+                if (insightCustomFields.length > 0) {
+                    beforeRendering();
+                    var options = {
+                        attributeFilter: ["class"],
+                        childList: true,
+                        subtree: true
+                    };
+
+                    var observer = new MutationObserver(checkNumberOfInsightInits);
+                    observer.observe(fieldset[0], options);
+
+                    setTimeout(function() {
+                        observer.disconnect();
+                    }, 15000);
+                }
+
+                function checkNumberOfInsightInits(_, observer) {
+                    var numberOfCorrectFields = 0;
+                    var insightInits = fieldset.find(".insight-init");
+                    insightInits.each(function (_, value) {
+                        var fieldId = value.id;
+                        if(fieldId !== "" && insightCustomFields.includes(fieldId)) {
+                            numberOfCorrectFields++;
+                        }
+                    });
+                    if(numberOfCorrectFields === insightCustomFields.length) {
+                        observer.disconnect();
+                        setCustomFieldsValues();
+                    }
+                }
+
+                function beforeRendering() {
+                    setTimeout(function() {
+                        var insightFields = jQuery("#action .insight-cf");
+                        insightFields.each(function (index) {
+                            var customFieldId = insightFields[index].dataset.id;
+                            var customFieldIdNumber = customFieldId.substr(12);
+                            var customFieldEntry = undefined;
+
+                            for (var i = 0; i < RLABS.CustomField.customFieldEntries.length; i++) {
+                                if (RLABS.CustomField.customFieldEntries[i].customFieldId == customFieldIdNumber) {
+                                    customFieldEntry = RLABS.CustomField.customFieldEntries[i];
+                                    break;
+                                }
+                            }
+
+                            if (customFieldEntry === undefined) {
+                                return;
+                            }
+
+                            var insightValues = insightFields[index].getAttribute("data-insight-val");
+                            if (!insightValues && !!insightFields[index].previousSibling) {
+                                insightValues = insightFields[index].previousSibling.getAttribute("data-insight-val");
+                            }
+
+                            if (!!insightValues && isJira9_2Higher) {
+                                if (customFieldEntry.formType === 0 && customFieldEntry.multiple) {
+                                    jQuery.ajax({
+                                        url: assetsUrl + insightValues,
+                                        type: "GET",
+                                        dataType: "json",
+                                        contentType: "application/json; charset=utf-8",
+                                        success: function (objects) {
+                                            const defaultData = objects.map((object) => ({ ...object, id: object.objectKey, objectId: object.id }));
+                                            jQuery(`input[name=${customFieldId}]`).data("defaultValueAlreadySet", true);
+                                            jQuery(`input[name=${customFieldId}]`).data("atlasSelectSelectedValues", defaultData);
+                                            jQuery(`input[name=${customFieldId}]`).val(insightValues.replace(/,/g, " "));
+                                            jQuery(`input[name=${customFieldId}]`).attr("id", customFieldId);
+                                        }
+                                    });
+                                } else if (customFieldEntry.formType === 0) {
+                                    jQuery.ajax({
+                                        url: assetsUrl + insightValues,
+                                        type: "GET",
+                                        dataType: "json",
+                                        contentType: "application/json; charset=utf-8",
+                                        success: function (objects) {
+                                            var insightValue = insightValues.split(",");
+                                            if (insightValue.length > 0) {
+                                                insightValue = insightValue[0];
+                                                const defaultData = objects.map((object) => ({ ...object, id: object.objectKey, objectId: object.id }));
+                                                jQuery(`input[name=${customFieldId}]`).data("defaultValueAlreadySet", true);
+                                                jQuery(`input[name=${customFieldId}]`).data("atlasSelectSelectedValues", defaultData);
+                                                jQuery(`input[name=${customFieldId}]`).val(insightValue);
+                                                jQuery(`input[name=${customFieldId}]`).attr("id", customFieldId);
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    jQuery(`input[name=${customFieldId}]`).attr("id", customFieldId);
+                                }
+                            } else {
+                                jQuery(`input[name=${customFieldId}]`).attr("id", customFieldId);
+                            }
+                        });
+                    }, 1000);
+                }
+
+                function setCustomFieldsValues() {
+                    setTimeout(function () {
+                        var insightFields = jQuery("#action .insight-init").not(".insight-readonly");
+                        insightFields.each(function (index) {
+                            var customFieldId = insightFields[index].id;
+                            var customFieldIdNumber = customFieldId.substr(12);
+                            var customFieldEntry = undefined;
+
+                            for (var i = 0; i < RLABS.CustomField.customFieldEntries.length; i++) {
+                                if (RLABS.CustomField.customFieldEntries[i].customFieldId == customFieldIdNumber) {
+                                    customFieldEntry = RLABS.CustomField.customFieldEntries[i];
+                                    break;
+                                }
+                            }
+
+                            if (customFieldEntry === undefined) {
+                                return;
+                            }
+
+                            var insightValues = insightFields[index].getAttribute("data-insight-val");
+                            if (!insightValues && !!insightFields[index].previousSibling) {
+                                insightValues = insightFields[index].previousSibling.getAttribute("data-insight-val");
+                            }
+
+                            if (!!insightValues) {
+                                if (!isJira9_2Higher && customFieldEntry.formType === 0 && customFieldEntry.multiple) {
+                                    jQuery.ajax({
+                                        url: assetsUrl + insightValues,
+                                        type: "GET",
+                                        dataType: "json",
+                                        contentType: "application/json; charset=utf-8",
+                                        success: function (objects) {
+                                            var dataDefault = [];
+
+                                            insightValues = insightValues.split(",");
+                                            for (var i = 0; i < objects.length; i++) {
+                                                if (insightValues.includes(objects[i].objectKey)) {
+                                                    dataDefault.push({
+                                                        'id': objects[i].objectKey,
+                                                        'name': objects[i].label,
+                                                        'label': objects[i].label,
+                                                        'objectId': objects[i].id
+                                                    });
+                                                }
+                                            }
+
+                                            var currentSDObjectPicker = jQuery("#s2id_" + customFieldId);
+                                            if (currentSDObjectPicker.length) {
+                                                currentSDObjectPicker.remove();
+                                            }
+
+                                            var sdObjectPicker = jQuery("#" + customFieldId + "_multi");
+                                            sdObjectPicker.val(insightValues.join(" "));
+                                            sdObjectPicker.attr("data-default", JSON.stringify(dataDefault));
+                                            customFieldEntry.addAllClicked = true;
+                                            sdObjectPicker.each(RLABS.CustomField.sdObjectSelectPicker.build({
+                                                customFieldEntry: customFieldEntry,
+                                                requestTypeId: RLABS.CustomField.currentRequestTypeId
+                                            }));
+                                        }
+                                    });
+                                } else if (!isJira9_2Higher && customFieldEntry.formType === 0) {
+                                    jQuery.ajax({
+                                        url: assetsUrl + insightValues,
+                                        type: "GET",
+                                        dataType: "json",
+                                        contentType: "application/json; charset=utf-8",
+                                        success: function (objects) {
+                                            var insightValue = insightValues.split(",");
+                                            if (insightValue.length > 0) {
+                                                insightValue = insightValue[0];
+                                                for (var i = 0; i < objects.length; i++) {
+                                                    if (insightValue === objects[i].objectKey) {
+                                                        jQuery("#s2id_" + customFieldId).find("span.select2-chosen").html(
+                                                                "<img class=\"selected rlabs-sd-object-picker-avatar\" src=\"/rest/insight_servicedesk/1.0/object/"
+                                                                + objects[i].id + "/avatar.png?size=16&amp;time=undefined\" height=\"16\" width=\"16\">"
+                                                                + objects[i].label
+                                                        );
+                                                        jQuery("#action #" + customFieldId).val(objects[i].objectKey);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    insightValues = insightValues.split(",");
+                                    for (var i = 0; i < insightValues.length; i++) {
+                                        var option = jQuery("#rlabs-" + customFieldId.replace("_", "-") + "-option-" + insightValues[i]);
+                                        if (!option.is(':checked')) {
+                                            option.click();
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }, 1000);
+                }
+            }
+        });
+    }
+
+</script>

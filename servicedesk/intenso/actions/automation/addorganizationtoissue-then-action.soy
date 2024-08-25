@@ -1,0 +1,24 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleThen.AddOrganizations}
+
+/**
+* Draw the container for the adding organizations then action
+*/
+{template .addOrganizationsThenActionContainer}
+    <div class="automation-servicedesk-intenso-add-organizations-then-action-container"></div>
+{/template}
+
+/**
+* Draw the contents for the adding organizations then action
+* @param organizationsIds - ids of organizations
+* @param organizations - available organizations for project
+*/
+{template .addOrganizationsThenActionForm}
+    <div class="automation-servicedesk-intenso-add-organizations-then-action-header">
+        <b>Organizations:</b>
+    </div>
+    <select multiple id="organizationsIds" name="organizationsIds" class="select" style="width: 350px;" value="{$organizationsIds}">
+        {foreach $organization in $organizations}
+            <option {$organization.v3 ? 'selected' : ''} value="{$organization.v1}">{$organization.v2}</option>
+        {/foreach}
+    </select>
+{/template}

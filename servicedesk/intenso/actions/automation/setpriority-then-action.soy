@@ -1,0 +1,25 @@
+{namespace JSDActions.Templates.Automation.Modules.RuleThen.SetPriority}
+
+/**
+* Draw the container for the set priority to issue then action
+*/
+{template .setPriorityThenActionContainer}
+    <div class="automation-servicedesk-intenso-set-priority-then-action-container"></div>
+{/template}
+
+/**
+* Draw the contents for the set priority to issue then action
+* @param priorityId - Key of selected user
+* @param allPriorities - all users in JIRA
+*/
+{template .setPriorityForm}
+    <div class="automation-servicedesk-intenso-set-priority-then-action-header">
+        <span class="aui-lozenge aui-lozenge-current">Depracated</span><b> Priority</b>
+    </div>
+    <select id="priorityIdSelect" name="priorityIdSelect" style="min-width: 250px;">
+        <option value=""></option>
+        {foreach $priority in $allPriorities}
+        <option {if $priorityId and $priorityId == $priority.v1} selected = "selected" {/if} value="{$priority.v1}">{$priority.v2}</option>
+        {/foreach}
+    </select>
+{/template}
